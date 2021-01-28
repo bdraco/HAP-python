@@ -1,15 +1,15 @@
 """Tests for the HAPServerProtocol."""
-from socket import timeout
-from unittest.mock import Mock, MagicMock, patch
+import logging
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-import logging
+
 from pyhap import hap_protocol
 
 
 def test_connection_management(driver):
     loop = MagicMock()
-    addr_info = ("1.2.3.4",5)
+    addr_info = ("1.2.3.4", 5)
     transport = MagicMock(get_extra_info=Mock(return_value=addr_info))
     connections = {}
 

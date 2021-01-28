@@ -5,10 +5,6 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
-from pyhap.const import __version__
-
-SNAPSHOT_TIMEOUT = 10
-
 logger = logging.getLogger(__name__)
 
 CRYPTO_BACKEND = default_backend()
