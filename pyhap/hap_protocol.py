@@ -5,11 +5,11 @@ The HAPServerProtocol is a protocol implementation that manages the "TLS" of the
 import asyncio
 import logging
 
+from cryptography.exceptions import InvalidTag
 import h11
 
 from .hap_crypto import HAPCrypto
 from .hap_handler import HAPResponse, HAPServerHandler
-from cryptography.exceptions import InvalidTag
 
 logger = logging.getLogger(__name__)
 

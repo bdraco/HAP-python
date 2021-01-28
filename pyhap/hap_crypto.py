@@ -4,10 +4,8 @@ import struct
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
-
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +63,7 @@ class HAPCrypto:
         """Receive data into the encrypted buffer."""
         self._crypt_in_buffer += buffer
 
-    def decrypt(self) -> str:
+    def decrypt(self) -> bytes:
         """Decrypt and return any complete blocks in the buffer as plaintext
 
         The received full cipher blocks are decrypted and returned and partial cipher
@@ -103,8 +101,8 @@ class HAPCrypto:
 
         return result
 
-    def encrypt(self, data: bytes) -> None:
-        """Encrypt and send the given data."""
+    def encrypt(self, data: bytes) -> bytes:
+        """Encrypt and send the return bytes."""
         result = b""
         offset = 0
         total = len(data)
