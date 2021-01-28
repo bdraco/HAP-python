@@ -10,8 +10,6 @@ from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 import h11
 
-from pyhap.const import __version__
-
 from .hap_crypto import HAP_CRYPTO, hap_hkdf, pad_tls_nonce
 from .hap_handler import HAPResponse, HAPServerHandler
 
