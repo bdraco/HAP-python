@@ -52,6 +52,10 @@ class HAPCrypto:
         self._out_count = 0
         self._in_count = 0
         self._crypt_in_buffer = bytearray()  # Encrypted buffer
+        self.reset(shared_key)
+
+    def reset(self, shared_key):
+        """Setup the ciphers."""
         self._out_cipher = ChaCha20Poly1305(
             hap_hkdf(shared_key, self.CIPHER_SALT, self.OUT_CIPHER_INFO)
         )
