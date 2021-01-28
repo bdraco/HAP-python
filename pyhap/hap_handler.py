@@ -13,7 +13,6 @@ from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 import curve25519
 import ed25519
 
-from pyhap.const import __version__
 import pyhap.tlv as tlv
 from pyhap.util import long_to_bytes
 
