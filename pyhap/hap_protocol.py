@@ -16,13 +16,6 @@ logger = logging.getLogger(__name__)
 class HAPServerProtocol(asyncio.Protocol):
     """A asyncio.Protocol implementing the HAP protocol."""
 
-    MAX_BLOCK_LENGTH = 0x400
-    LENGTH_LENGTH = 2
-
-    CIPHER_SALT = b"Control-Salt"
-    OUT_CIPHER_INFO = b"Control-Read-Encryption-Key"
-    IN_CIPHER_INFO = b"Control-Write-Encryption-Key"
-
     def __init__(self, loop, connections, accessory_handler) -> None:
         self.loop = loop
         self.conn = h11.Connection(h11.SERVER)
