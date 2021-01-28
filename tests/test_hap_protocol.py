@@ -31,7 +31,7 @@ def test_pair_setup(driver):
 
     with patch.object(hap_proto, "write") as writer:
         hap_proto.data_received(
-            b"POST /pair-setup HTTP/1.1\r\nHost: Bridge\\032C77C47._hap._tcp.local\r\nContent-Length: 6\r\nContent-Type: application/pairing+tlv8\r\n\r\n\x00\x01\x00\x06\x01\x01"
+            b"POST /pair-setup HTTP/1.1\r\nHost: Bridge\\032C77C47._hap._tcp.local\r\nContent-Length: 6\r\nContent-Type: application/pairing+tlv8\r\n\r\n\x00\x01\x00\x06\x01\x01"  # pylint: disable=line-too-long
         )
 
     assert writer.call_args_list[0].startswith(
@@ -49,10 +49,10 @@ def test_encrypted_get_accessories(driver):
 
     hap_proto = hap_protocol.HAPServerProtocol(loop, connections, driver)
     hap_proto.connection_made(transport)
-    hap_proto.shared_key = b"l\xbfQ\x82\xabp\xb1\xeft\xa5\xcb\xcb\xaa(i\n\x9a\x83\x11\xeb\x8e\x11{\xf5}\xdf\xff\xebP\xfd\xa3("
-    hap_proto._set_ciphers()
+    hap_proto.shared_key = b"l\xbfQ\x82\xabp\xb1\xeft\xa5\xcb\xcb\xaa(i\n\x9a\x83\x11\xeb\x8e\x11{\xf5}\xdf\xff\xebP\xfd\xa3("  # pylint: disable=line-too-long
+    hap_proto._set_ciphers()  # pylint: disable=protected-access
 
-    raw_request = hap_proto._encrypt_data(
+    raw_request = hap_proto._encrypt_data(  # pylint: disable=protected-access
         b"GET /accessories HTTP/1.1\r\nHost: Bridge\\032C77C47._hap._tcp.local\r\n\r\n"
     )
 
