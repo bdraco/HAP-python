@@ -86,6 +86,7 @@ class AccessoryMDNSServiceInfo(ServiceInfo):
         self.state = state
 
         adv_data = self._get_advert_data()
+        logger.warning("adv_data: %s", adv_data)
         # Append part of MAC address to prevent name conflicts
         name = "{} {}.{}".format(
             self.accessory.display_name,
