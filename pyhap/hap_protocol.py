@@ -10,8 +10,6 @@ from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 import h11
 
-from pyhap.const import __version__
-
 from .hap_crypto import HAP_CRYPTO, hap_hkdf, pad_tls_nonce
 from .hap_handler import HAPResponse, HAPServerHandler
 
@@ -66,43 +64,40 @@ class HAPServerProtocol(asyncio.Protocol):
 
         # If we do not have a partial decrypted block
         # read the next one
-        while len(self._incoming_buffer) > self.LENGTH_LENGTH:
-            block_length_bytes = self._incoming_buffer[: self.LENGTH_LENGTH]
-            block_size = struct.unpack("H", block_length_bytes)[0]
-            block_size_with_length = (
-                self.LENGTH_LENGTH + block_size + HAP_CRYPTO.TAG_LENGTH
+        while len(self._incoming_buffer) < self.LENGTH_LENGTH:
+            return result
+
+        block_length_bytes = self._incoming_buffer[: self.LENGTH_LENGTH]
+        block_size = struct.unpack("H", block_length_bytes)[0]
+        block_size_with_length = self.LENGTH_LENGTH + block_size + HAP_CRYPTO.TAG_LENGTH
+
+        if len(self._incoming_buffer) < block_size_with_length:
+            return result
+
+        # Trim off the length
+        del self._incoming_buffer[: self.LENGTH_LENGTH]
+
+        data_size = block_size + HAP_CRYPTO.TAG_LENGTH
+        nonce = pad_tls_nonce(struct.pack("Q", self.in_count))
+
+        try:
+            result += self.in_cipher.decrypt(
+                nonce,
+                bytes(self._incoming_buffer[:data_size]),
+                bytes(block_length_bytes),
             )
+        except InvalidTag:
+            logger.debug(
+                "%s: Decrypt failed, closing connection",
+                self.peername,
+            )
+            self.close()
+            return result
 
-            if len(self._incoming_buffer) >= block_size_with_length:
+        self.in_count += 1
 
-                # Trim off the length
-                del self._incoming_buffer[: self.LENGTH_LENGTH]
-
-                data_size = block_size + HAP_CRYPTO.TAG_LENGTH
-                nonce = pad_tls_nonce(struct.pack("Q", self.in_count))
-
-                try:
-                    result += self.in_cipher.decrypt(
-                        nonce,
-                        bytes(self._incoming_buffer[:data_size]),
-                        bytes(block_length_bytes),
-                    )
-                except InvalidTag:
-                    logger.debug(
-                        "%s: Decrypt failed, closing connection",
-                        self.peername,
-                    )
-                    self.close()
-                    return result
-
-                self.in_count += 1
-
-                # Now trim out the decrypted data
-                del self._incoming_buffer[:data_size]
-            else:
-                return result
-
-        return result
+        # Now trim out the decrypted data
+        del self._incoming_buffer[:data_size]
 
     def connection_lost(self, exc: Exception) -> None:
         """Handle connection lost."""

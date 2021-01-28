@@ -132,7 +132,6 @@ class HAPServerHandler:
         self.enc_context = None
         self.client_address = client_address
         self.is_encrypted = False
-        self.server_version = "pyhap/" + __version__
 
         self.path = None
         self.command = None
