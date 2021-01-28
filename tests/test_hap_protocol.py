@@ -7,6 +7,20 @@ import logging
 from pyhap import hap_protocol
 
 
+def test_connection_management(driver):
+    loop = MagicMock()
+    addr_info = ("1.2.3.4",5)
+    transport = MagicMock(get_extra_info=Mock(return_value=addr_info))
+    connections = {}
+
+    hap_proto = hap_protocol.HAPServerProtocol(loop, connections, driver)
+    hap_proto.connection_made(transport)
+    assert len(connections) == 1
+    assert connections[addr_info] == hap_proto
+    hap_proto.connection_lost(None)
+    assert len(connections) == 0
+
+
 def test_pair_setup(driver):
     loop = MagicMock()
     transport = MagicMock()
