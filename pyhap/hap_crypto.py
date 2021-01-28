@@ -43,7 +43,7 @@ class HAPCrypto:
 
     MAX_BLOCK_LENGTH = 0x400
     LENGTH_LENGTH = 2
-    MIN_PAYLOAD_LENGTH = 1
+    MIN_PAYLOAD_LENGTH = 1  # This is probably larger, but its only an optimization
     MIN_BLOCK_LENGTH = LENGTH_LENGTH + HAP_CRYPTO.TAG_LENGTH + MIN_PAYLOAD_LENGTH
 
     CIPHER_SALT = b"Control-Salt"
