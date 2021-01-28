@@ -90,16 +90,11 @@ class HAPCrypto:
             data_size = block_size + HAP_CRYPTO.TAG_LENGTH
             nonce = pad_tls_nonce(struct.pack("Q", self._in_count))
 
-            try:
-                result += self._in_cipher.decrypt(
-                    nonce,
-                    bytes(self._crypt_in_buffer[:data_size]),
-                    bytes(block_length_bytes),
-                )
-            except InvalidTag as ex:
-                logger.debug("Decrypt failed, closing connection: %s", ex)
-                self.close()
-                return result
+            result += self._in_cipher.decrypt(
+                nonce,
+                bytes(self._crypt_in_buffer[:data_size]),
+                bytes(block_length_bytes),
+            )
 
             self._in_count += 1
 

@@ -9,6 +9,7 @@ import h11
 
 from .hap_crypto import HAPCrypto
 from .hap_handler import HAPResponse, HAPServerHandler
+from cryptography.exceptions import InvalidTag
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +80,14 @@ class HAPServerProtocol(asyncio.Protocol):
         """Process new data from the socket."""
         if self.hap_crypto:
             self.hap_crypto.receive_data(data)
-            unencrypted_data = self.hap_crypto.decrypt()
+            try:
+                unencrypted_data = self.hap_crypto.decrypt()
+            except InvalidTag as ex:
+                logger.debug(
+                    "%s: Decrypt failed, closing connection: %s", self.peername, ex
+                )
+                self.close()
+                return
             if unencrypted_data == b"":
                 logger.debug("No decryptable data")
                 return
