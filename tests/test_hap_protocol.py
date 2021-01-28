@@ -1,9 +1,6 @@
 """Tests for the HAPServerProtocol."""
-import logging
 from unittest.mock import MagicMock, Mock, patch
 from cryptography.exceptions import InvalidTag
-
-import pytest
 
 from pyhap import hap_protocol
 from pyhap.accessory import Accessory
@@ -32,6 +29,7 @@ class MockHAPCrypto:
 
 
 def test_connection_management(driver):
+    """Verify closing the connection removes it from the pool."""
     loop = MagicMock()
     addr_info = ("1.2.3.4", 5)
     transport = MagicMock(get_extra_info=Mock(return_value=addr_info))
@@ -52,6 +50,7 @@ def test_connection_management(driver):
 
 
 def test_pair_setup(driver):
+    """Verify an non-encrypt request."""
     loop = MagicMock()
     transport = MagicMock()
     connections = {}
@@ -73,6 +72,7 @@ def test_pair_setup(driver):
 
 
 def test_get_accessories_without_crypto(driver):
+    """Verify an non-encrypt request that expected to be encrypted."""
     loop = MagicMock()
     transport = MagicMock()
     connections = {}
@@ -89,6 +89,7 @@ def test_get_accessories_without_crypto(driver):
 
 
 def test_get_accessories_with_crypto(driver):
+    """Verify an encrypt request."""
     loop = MagicMock()
     transport = MagicMock()
     connections = {}
@@ -110,6 +111,7 @@ def test_get_accessories_with_crypto(driver):
 
 
 def test_crypto_failure_closes_connection(driver):
+    """Verify a decrypt failure closes the connection."""
     loop = MagicMock()
     addr_info = ("1.2.3.4", 5)
     transport = MagicMock(get_extra_info=Mock(return_value=addr_info))
