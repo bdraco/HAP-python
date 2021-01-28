@@ -169,13 +169,6 @@ class HAPServerProtocol(asyncio.Protocol):
             + self.conn.send(h11.EndOfMessage())
         )
 
-    def _handle_response_ready(self, task: asyncio.Task) -> None:
-        """Handle delayed response."""
-        response = self.response
-        self.response = None
-        response.body = task.result()
-        self.send_response(response)
-
     def data_received(self, data: bytes) -> None:
         """Process new data from the socket."""
         if self.shared_key:
@@ -245,6 +238,13 @@ class HAPServerProtocol(asyncio.Protocol):
         if response.shared_key:
             self.shared_key = response.shared_key
             self._set_ciphers()
+
+    def _handle_response_ready(self, task: asyncio.Task) -> None:
+        """Handle delayed response."""
+        response = self.response
+        self.response = None
+        response.body = task.result()
+        self.send_response(response)
 
     def _handle_invalid_conn_state(self, message):
         """Log invalid state and close."""
