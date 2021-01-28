@@ -31,11 +31,12 @@ class HAPServerProtocol(asyncio.Protocol):
         self.conn = h11.Connection(h11.SERVER)
         self.connections = connections
         self.accessory_handler = accessory_handler
-        self.hap_server_handler = None
+        self._handler = None
         self.peername = None
         self.transport = None
 
         self.request = None
+        self.request_body = None
         self.response = None
 
         self.shared_key = None
@@ -44,7 +45,7 @@ class HAPServerProtocol(asyncio.Protocol):
         self.out_cipher = None
         self.in_cipher = None
 
-        self._incoming_buffer = bytearray()  # Encrypted buffer
+        self._crypt_in_buffer = bytearray()  # Encrypted buffer
 
     def _set_ciphers(self) -> None:
         """Generate out/inbound encryption keys and initialise respective ciphers."""
@@ -64,18 +65,25 @@ class HAPServerProtocol(asyncio.Protocol):
 
         # If we do not have a partial decrypted block
         # read the next one
-        while len(self._incoming_buffer) < self.LENGTH_LENGTH:
+        while len(self._crypt_in_buffer) < self.LENGTH_LENGTH:
+            logger.debug(
+                "%s: Incoming buffer is too small to hold an encrypted packet",
+                self.peername,
+            )
             return result
 
-        block_length_bytes = self._incoming_buffer[: self.LENGTH_LENGTH]
+        block_length_bytes = self._crypt_in_buffer[: self.LENGTH_LENGTH]
         block_size = struct.unpack("H", block_length_bytes)[0]
         block_size_with_length = self.LENGTH_LENGTH + block_size + HAP_CRYPTO.TAG_LENGTH
 
-        if len(self._incoming_buffer) < block_size_with_length:
+        if len(self._crypt_in_buffer) < block_size_with_length:
+            logger.debug(
+                "%s: Incoming buffer does not have the full block", self.peername
+            )
             return result
 
         # Trim off the length
-        del self._incoming_buffer[: self.LENGTH_LENGTH]
+        del self._crypt_in_buffer[: self.LENGTH_LENGTH]
 
         data_size = block_size + HAP_CRYPTO.TAG_LENGTH
         nonce = pad_tls_nonce(struct.pack("Q", self.in_count))
@@ -83,7 +91,7 @@ class HAPServerProtocol(asyncio.Protocol):
         try:
             result += self.in_cipher.decrypt(
                 nonce,
-                bytes(self._incoming_buffer[:data_size]),
+                bytes(self._crypt_in_buffer[:data_size]),
                 bytes(block_length_bytes),
             )
         except InvalidTag:
@@ -97,7 +105,8 @@ class HAPServerProtocol(asyncio.Protocol):
         self.in_count += 1
 
         # Now trim out the decrypted data
-        del self._incoming_buffer[:data_size]
+        del self._crypt_in_buffer[:data_size]
+        return result
 
     def connection_lost(self, exc: Exception) -> None:
         """Handle connection lost."""
@@ -111,7 +120,7 @@ class HAPServerProtocol(asyncio.Protocol):
         self.transport = transport
         self.peername = peername
         self.connections[peername] = self
-        self.hap_server_handler = HAPServerHandler(self.accessory_handler, peername)
+        self._handler = HAPServerHandler(self.accessory_handler, peername)
 
     def write(self, data: bytes) -> None:
         """Write data to the client."""
@@ -170,7 +179,7 @@ class HAPServerProtocol(asyncio.Protocol):
     def data_received(self, data: bytes) -> None:
         """Process new data from the socket."""
         if self.shared_key:
-            self._incoming_buffer += data
+            self._crypt_in_buffer += data
             unencrypted_data = self.decrypt_buffer()
             if unencrypted_data == b"":
                 logger.debug("No decryptable data")
@@ -206,26 +215,18 @@ class HAPServerProtocol(asyncio.Protocol):
 
         if isinstance(event, h11.Request):
             self.request = event
-
-            if event.method in {b"PUT", b"POST"}:
-                return True
-
-            if event.method == b"GET":
-                return self._process_response(
-                    self.hap_server_handler.dispatch(self.request)
-                )
-
-            return self._handle_invalid_conn_state(
-                "No handler for method {}".format(event.method.decode())
-            )
+            self.request_body = b""
+            return True
 
         if isinstance(event, h11.Data):
-            return self._process_response(
-                self.hap_server_handler.dispatch(self.request, bytes(event.data))
-            )
+            self.request_body += event.data
+            return True
 
         if isinstance(event, h11.EndOfMessage):
+            response = self._handler.dispatch(self.request, bytes(self.request_body))
+            self._process_response(response)
             self.request = None
+            self.request_body = None
             return True
 
         return self._handle_invalid_conn_state("Unexpected event: {}".format(event))
@@ -244,8 +245,6 @@ class HAPServerProtocol(asyncio.Protocol):
         if response.shared_key:
             self.shared_key = response.shared_key
             self._set_ciphers()
-
-        return True
 
     def _handle_invalid_conn_state(self, message):
         """Log invalid state and close."""
