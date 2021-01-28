@@ -43,6 +43,7 @@ class HAPCrypto:
 
     MAX_BLOCK_LENGTH = 0x400
     LENGTH_LENGTH = 2
+    MIN_BLOCK_LENGTH = LENGTH_LENGTH + HAP_CRYPTO.TAG_LENGTH + 1
 
     CIPHER_SALT = b"Control-Salt"
     OUT_CIPHER_INFO = b"Control-Read-Encryption-Key"
@@ -71,43 +72,39 @@ class HAPCrypto:
         """
         result = b""
 
-        # If we do not have a partial decrypted block
-        # read the next one
-        while len(self._crypt_in_buffer) < self.LENGTH_LENGTH:
-            logger.debug(
-                "Incoming buffer is too small to hold an encrypted packet",
+        while len(self._crypt_in_buffer) > self.MIN_BLOCK_LENGTH:
+            block_length_bytes = self._crypt_in_buffer[: self.LENGTH_LENGTH]
+            block_size = struct.unpack("H", block_length_bytes)[0]
+            block_size_with_length = (
+                self.LENGTH_LENGTH + block_size + HAP_CRYPTO.TAG_LENGTH
             )
-            return result
 
-        block_length_bytes = self._crypt_in_buffer[: self.LENGTH_LENGTH]
-        block_size = struct.unpack("H", block_length_bytes)[0]
-        block_size_with_length = self.LENGTH_LENGTH + block_size + HAP_CRYPTO.TAG_LENGTH
+            if len(self._crypt_in_buffer) < block_size_with_length:
+                logger.debug("Incoming buffer does not have the full block")
+                return result
 
-        if len(self._crypt_in_buffer) < block_size_with_length:
-            logger.debug("Incoming buffer does not have the full block")
-            return result
+            # Trim off the length
+            del self._crypt_in_buffer[: self.LENGTH_LENGTH]
 
-        # Trim off the length
-        del self._crypt_in_buffer[: self.LENGTH_LENGTH]
+            data_size = block_size + HAP_CRYPTO.TAG_LENGTH
+            nonce = pad_tls_nonce(struct.pack("Q", self._in_count))
 
-        data_size = block_size + HAP_CRYPTO.TAG_LENGTH
-        nonce = pad_tls_nonce(struct.pack("Q", self._in_count))
+            try:
+                result += self._in_cipher.decrypt(
+                    nonce,
+                    bytes(self._crypt_in_buffer[:data_size]),
+                    bytes(block_length_bytes),
+                )
+            except InvalidTag as ex:
+                logger.debug("Decrypt failed, closing connection: %s", ex)
+                self.close()
+                return result
 
-        try:
-            result += self._in_cipher.decrypt(
-                nonce,
-                bytes(self._crypt_in_buffer[:data_size]),
-                bytes(block_length_bytes),
-            )
-        except InvalidTag as ex:
-            logger.debug("Decrypt failed, closing connection: %s", ex)
-            self.close()
-            return result
+            self._in_count += 1
 
-        self._in_count += 1
+            # Now trim out the decrypted data
+            del self._crypt_in_buffer[:data_size]
 
-        # Now trim out the decrypted data
-        del self._crypt_in_buffer[:data_size]
         return result
 
     def encrypt(self, data: bytes) -> None:
