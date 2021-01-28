@@ -476,7 +476,7 @@ class AccessoryDriver:
             pushed = self.http_server.push_event(bytedata, client_addr)
             if not pushed:
                 logger.debug(
-                    "Could not send event to %s, probably stale socket.", client_addr,
+                    "Could not send event to %s, probably stale socket.", client_addr
                 )
                 unsubs.append(client_addr)
                 # Maybe consider removing the client_addr from every topic?
