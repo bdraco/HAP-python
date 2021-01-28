@@ -238,6 +238,11 @@ class HAPServerProtocol(asyncio.Protocol):
         return result
 
     def _write_encrypted(self, data: bytes) -> None:
+        result = self._encrypt_data(data)
+        logger.debug("%s: Send encrypted: %s", self.peername, data)
+        self.transport.write(result)
+
+    def _encrypt_data(self, data: bytes) -> None:
         """Encrypt and send the given data."""
         result = b""
         offset = 0
@@ -253,5 +258,4 @@ class HAPServerProtocol(asyncio.Protocol):
             offset += length
             self.out_count += 1
             result += ciphertext
-        logger.debug("%s: Send encrypted: %s", self.peername, data)
-        self.transport.write(result)
+        return result
