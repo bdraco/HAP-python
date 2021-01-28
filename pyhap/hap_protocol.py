@@ -4,27 +4,18 @@ The HAPServerProtocol is a protocol implementation that manages the "TLS" of the
 """
 import asyncio
 import logging
-import struct
 
-from cryptography.exceptions import InvalidTag
-from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 import h11
 
-from .hap_crypto import HAP_CRYPTO, hap_hkdf, pad_tls_nonce
+from .hap_crypto import HAPCrypto
 from .hap_handler import HAPResponse, HAPServerHandler
+from cryptography.exceptions import InvalidTag
 
 logger = logging.getLogger(__name__)
 
 
 class HAPServerProtocol(asyncio.Protocol):
     """A asyncio.Protocol implementing the HAP protocol."""
-
-    MAX_BLOCK_LENGTH = 0x400
-    LENGTH_LENGTH = 2
-
-    CIPHER_SALT = b"Control-Salt"
-    OUT_CIPHER_INFO = b"Control-Read-Encryption-Key"
-    IN_CIPHER_INFO = b"Control-Write-Encryption-Key"
 
     def __init__(self, loop, connections, accessory_handler) -> None:
         self.loop = loop
@@ -39,13 +30,7 @@ class HAPServerProtocol(asyncio.Protocol):
         self.request_body = None
         self.response = None
 
-        self.shared_key = None
-        self.out_count = 0
-        self.in_count = 0
-        self.out_cipher = None
-        self.in_cipher = None
-
-        self._crypt_in_buffer = bytearray()  # Encrypted buffer
+        self.hap_crypto = None
 
     def connection_lost(self, exc: Exception) -> None:
         """Handle connection lost."""
@@ -63,8 +48,10 @@ class HAPServerProtocol(asyncio.Protocol):
 
     def write(self, data: bytes) -> None:
         """Write data to the client."""
-        if self.shared_key:
-            self._write_encrypted(data)
+        if self.hap_crypto:
+            result = self.hap_crypto.encrypt(data)
+            logger.debug("%s: Send encrypted: %s", self.peername, data)
+            self.transport.write(result)
         else:
             logger.debug("%s: Send unencrypted: %s", self.peername, data)
             self.transport.write(data)
@@ -91,9 +78,16 @@ class HAPServerProtocol(asyncio.Protocol):
 
     def data_received(self, data: bytes) -> None:
         """Process new data from the socket."""
-        if self.shared_key:
-            self._crypt_in_buffer += data
-            unencrypted_data = self._decrypt_buffer()
+        if self.hap_crypto:
+            self.hap_crypto.receive_data(data)
+            try:
+                unencrypted_data = self.hap_crypto.decrypt()
+            except InvalidTag as ex:
+                logger.debug(
+                    "%s: Decrypt failed, closing connection: %s", self.peername, ex
+                )
+                self.close()
+                return
             if unencrypted_data == b"":
                 logger.debug("No decryptable data")
                 return
@@ -156,8 +150,7 @@ class HAPServerProtocol(asyncio.Protocol):
 
         # If we get a shared key, upgrade to encrypted
         if response.shared_key:
-            self.shared_key = response.shared_key
-            self._set_ciphers()
+            self.hap_crypto = HAPCrypto(response.shared_key)
 
     def _handle_response_ready(self, task: asyncio.Task) -> None:
         """Handle delayed response."""
@@ -175,87 +168,3 @@ class HAPServerProtocol(asyncio.Protocol):
         )
         self.close()
         return False
-
-    def _set_ciphers(self) -> None:
-        """Generate out/inbound encryption keys and initialise respective ciphers."""
-        outgoing_key = hap_hkdf(self.shared_key, self.CIPHER_SALT, self.OUT_CIPHER_INFO)
-        self.out_cipher = ChaCha20Poly1305(outgoing_key)
-
-        incoming_key = hap_hkdf(self.shared_key, self.CIPHER_SALT, self.IN_CIPHER_INFO)
-        self.in_cipher = ChaCha20Poly1305(incoming_key)
-
-    def _decrypt_buffer(self) -> str:
-        """Receive up to buflen bytes.
-
-        The received full cipher blocks are decrypted and returned and partial cipher
-        blocks are buffered locally.
-        """
-        result = b""
-
-        # If we do not have a partial decrypted block
-        # read the next one
-        while len(self._crypt_in_buffer) < self.LENGTH_LENGTH:
-            logger.debug(
-                "%s: Incoming buffer is too small to hold an encrypted packet",
-                self.peername,
-            )
-            return result
-
-        block_length_bytes = self._crypt_in_buffer[: self.LENGTH_LENGTH]
-        block_size = struct.unpack("H", block_length_bytes)[0]
-        block_size_with_length = self.LENGTH_LENGTH + block_size + HAP_CRYPTO.TAG_LENGTH
-
-        if len(self._crypt_in_buffer) < block_size_with_length:
-            logger.debug(
-                "%s: Incoming buffer does not have the full block", self.peername
-            )
-            return result
-
-        # Trim off the length
-        del self._crypt_in_buffer[: self.LENGTH_LENGTH]
-
-        data_size = block_size + HAP_CRYPTO.TAG_LENGTH
-        nonce = pad_tls_nonce(struct.pack("Q", self.in_count))
-
-        try:
-            result += self.in_cipher.decrypt(
-                nonce,
-                bytes(self._crypt_in_buffer[:data_size]),
-                bytes(block_length_bytes),
-            )
-        except InvalidTag:
-            logger.debug(
-                "%s: Decrypt failed, closing connection",
-                self.peername,
-            )
-            self.close()
-            return result
-
-        self.in_count += 1
-
-        # Now trim out the decrypted data
-        del self._crypt_in_buffer[:data_size]
-        return result
-
-    def _write_encrypted(self, data: bytes) -> None:
-        result = self._encrypt_data(data)
-        logger.debug("%s: Send encrypted: %s", self.peername, data)
-        self.transport.write(result)
-
-    def _encrypt_data(self, data: bytes) -> None:
-        """Encrypt and send the given data."""
-        result = b""
-        offset = 0
-        total = len(data)
-        while offset < total:
-            length = min(total - offset, self.MAX_BLOCK_LENGTH)
-            length_bytes = struct.pack("H", length)
-            block = bytes(data[offset : offset + length])
-            nonce = pad_tls_nonce(struct.pack("Q", self.out_count))
-            ciphertext = length_bytes + self.out_cipher.encrypt(
-                nonce, block, length_bytes
-            )
-            offset += length
-            self.out_count += 1
-            result += ciphertext
-        return result
