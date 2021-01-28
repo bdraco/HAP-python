@@ -17,12 +17,12 @@ logger = logging.getLogger(__name__)
 class HAPServerProtocol(asyncio.Protocol):
     """A asyncio.Protocol implementing the HAP protocol."""
 
-    def __init__(self, loop, connections, accessory_handler) -> None:
+    def __init__(self, loop, connections, accessory_driver) -> None:
         self.loop = loop
         self.conn = h11.Connection(h11.SERVER)
         self.connections = connections
-        self.accessory_handler = accessory_handler
-        self._handler = None
+        self.accessory_driver = accessory_driver
+        self.handler = None
         self.peername = None
         self.transport = None
 
@@ -44,7 +44,7 @@ class HAPServerProtocol(asyncio.Protocol):
         self.transport = transport
         self.peername = peername
         self.connections[peername] = self
-        self._handler = HAPServerHandler(self.accessory_handler, peername)
+        self.handler = HAPServerHandler(self.accessory_driver, peername)
 
     def write(self, data: bytes) -> None:
         """Write data to the client."""
@@ -130,7 +130,7 @@ class HAPServerProtocol(asyncio.Protocol):
             return True
 
         if isinstance(event, h11.EndOfMessage):
-            response = self._handler.dispatch(self.request, bytes(self.request_body))
+            response = self.handler.dispatch(self.request, bytes(self.request_body))
             self._process_response(response)
             self.request = None
             self.request_body = None
