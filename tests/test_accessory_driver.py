@@ -7,11 +7,14 @@ import pytest
 
 from pyhap.accessory import STANDALONE_AID, Accessory, Bridge
 from pyhap.accessory_driver import AccessoryDriver
-from pyhap.characteristic import (HAP_FORMAT_INT, HAP_PERMISSION_READ,
-                                  PROP_FORMAT, PROP_PERMISSIONS,
-                                  Characteristic)
-from pyhap.const import (HAP_REPR_AID, HAP_REPR_CHARS, HAP_REPR_IID,
-                         HAP_REPR_VALUE)
+from pyhap.characteristic import (
+    HAP_FORMAT_INT,
+    HAP_PERMISSION_READ,
+    PROP_FORMAT,
+    PROP_PERMISSIONS,
+    Characteristic,
+)
+from pyhap.const import HAP_REPR_AID, HAP_REPR_CHARS, HAP_REPR_IID, HAP_REPR_VALUE
 from pyhap.service import Service
 
 CHAR_PROPS = {
@@ -197,3 +200,35 @@ def test_start_stop_async_acc(driver):
     driver.add_accessory(acc)
     driver.start()
     assert driver.loop.is_closed()
+
+
+def test_send_events(driver):
+    class LoopMock:
+        runcount = 0
+
+        def is_closed(self):
+            self.runcount += 1
+            if self.runcount > 1:
+                return True
+            return False
+
+    class HapServerMock:
+        pushed_events = []
+
+        def push_event(self, bytedata, client_addr):
+            self.pushed_events.extend([[bytedata, client_addr]])
+            return 1
+
+        def get_pushed_events(self):
+            return self.pushed_events
+
+    driver.http_server = HapServerMock()
+    driver.loop = LoopMock()
+    driver.topics = {"mocktopic": ["client1", "client2", "client3"]}
+    driver.async_send_event("mocktopic", "bytedata", "client1")
+
+    # Only client2 and client3 get the event when client1 sent it
+    assert driver.http_server.get_pushed_events() == [
+        ["bytedata", "client2"],
+        ["bytedata", "client3"],
+    ]
