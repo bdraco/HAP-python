@@ -184,21 +184,22 @@ class Accessory:
 
         :rtype: str
         """
-        buffer = bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00')
+        payload = 0
+        payload |= (0 & 0x7) # version
 
-        value_low = int(self.driver.state.pincode.replace(b'-', b''), 10)
-        value_low |= 1 << 28
-        struct.pack_into('>L', buffer, 4, value_low)
+        payload <<= 4
+        payload |=(0 & 0xf)  # reserved bits
 
-        if self.category == CATEGORY_OTHER:
-            buffer[4] = buffer[4] | 1 << 7
+        payload <<= 8
+        payload |= (self.category & 0xff) # category
 
-        value_high = self.category >> 1
-        struct.pack_into('>L', buffer, 0, value_high)
+        payload <<= 4
+        payload |= (2 & 0xf) # flags
 
-        encoded_payload = base36.dumps(
-            struct.unpack_from('>L', buffer, 4)[0] +
-            (struct.unpack_from('>L', buffer, 0)[0] * (1 << 32))).upper()
+        payload <<= 27
+        payload |= (int(self.driver.state.pincode.replace(b'-', b''), 10) & 0x7fffffff)    # pincode
+
+        encoded_payload = base36.dumps(payload).upper()
         encoded_payload = encoded_payload.rjust(9, '0')
 
         return 'X-HM://' + encoded_payload + self.driver.state.setup_id
