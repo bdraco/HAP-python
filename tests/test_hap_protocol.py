@@ -23,7 +23,7 @@ class MockHAPCrypto:
         self._crypt_in_buffer = bytearray()  # Encrypted buffer
         return decrypted
 
-    def encrypt(self, data):
+    def encrypt(self, data):  # pylint: disable=no-self-use
         """Mock as plaintext."""
         return data
 
@@ -125,9 +125,7 @@ def test_crypto_failure_closes_connection(driver):
     hap_proto.hap_crypto = MockHAPCrypto()
     hap_proto.handler.is_encrypted = True
     assert connections[addr_info] == hap_proto
-    with patch.object(
-        hap_proto.hap_crypto, "decrypt", side_effect=InvalidTag
-    ), patch.object(hap_proto.transport, "write") as writer:
+    with patch.object(hap_proto.hap_crypto, "decrypt", side_effect=InvalidTag):
         hap_proto.data_received(b"any")  # pylint: disable=line-too-long
 
     assert len(connections) == 0
