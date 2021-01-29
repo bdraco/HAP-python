@@ -107,7 +107,7 @@ class AccessoryMDNSServiceInfo(ServiceInfo):
         setup_hash_material = self.state.setup_id + self.state.mac
         temp_hash = hashlib.sha512()
         temp_hash.update(setup_hash_material.encode())
-        return base64.b64encode(temp_hash.digest()[:4])
+        return base64.b64encode(temp_hash.digest()[:4]).decode()
 
     def _get_advert_data(self):
         """Generate advertisement data from the accessory."""

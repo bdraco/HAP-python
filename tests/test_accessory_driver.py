@@ -6,7 +6,7 @@ from uuid import uuid1
 import pytest
 
 from pyhap.accessory import STANDALONE_AID, Accessory, Bridge
-from pyhap.accessory_driver import AccessoryDriver
+from pyhap.accessory_driver import AccessoryDriver, AccessoryMDNSServiceInfo
 from pyhap.characteristic import (
     HAP_FORMAT_INT,
     HAP_PERMISSION_READ,
@@ -16,6 +16,7 @@ from pyhap.characteristic import (
 )
 from pyhap.const import HAP_REPR_AID, HAP_REPR_CHARS, HAP_REPR_IID, HAP_REPR_VALUE
 from pyhap.service import Service
+from pyhap.state import State
 
 CHAR_PROPS = {
     PROP_FORMAT: HAP_FORMAT_INT,
@@ -203,6 +204,8 @@ def test_start_stop_async_acc(driver):
 
 
 def test_send_events(driver):
+    """Test we can send events."""
+
     class LoopMock:
         runcount = 0
 
@@ -232,3 +235,42 @@ def test_send_events(driver):
         ["bytedata", "client2"],
         ["bytedata", "client3"],
     ]
+
+
+def test_async_subscribe_client_topic(driver):
+    """Test subscribe and unsubscribe."""
+    addr_info = ("1.2.3.4", 5)
+    topic = "any"
+    assert driver.topics == {}
+    driver.async_subscribe_client_topic(addr_info, topic, True)
+    assert driver.topics == {topic: {addr_info}}
+    driver.async_subscribe_client_topic(addr_info, topic, False)
+    assert driver.topics == {}
+
+
+def test_mdns_service_info(driver):
+    """Test accessory mdns advert."""
+    acc = Accessory(driver, "Test Accessory")
+    driver.add_accessory(acc)
+    addr = "172.0.0.1"
+    mac = "00:00:00:00:00:00"
+    pin = b"123-45-678"
+    port = 11111
+    state = State(address=addr, mac=mac, pincode=pin, port=port)
+    state.setup_id = "abc"
+    mdns_info = AccessoryMDNSServiceInfo(acc, state)
+    assert mdns_info.type == "_hap._tcp.local."
+    assert mdns_info.name == "Test Accessory 000000._hap._tcp.local."
+    assert mdns_info.port == port
+    assert mdns_info.addresses == [b"\xac\x00\x00\x01"]
+    assert mdns_info.properties == {
+        "md": "Test Accessory",
+        "pv": "1.0",
+        "id": "00:00:00:00:00:00",
+        "c#": "2",
+        "s#": "1",
+        "ff": "0",
+        "ci": "1",
+        "sf": "1",
+        "sh": "+KjpzQ==",
+    }
