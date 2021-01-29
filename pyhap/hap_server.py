@@ -3,7 +3,6 @@
 The HAPServer is the point of contact to and from the world.
 """
 
-import asyncio
 import logging
 
 from .hap_protocol import HAPServerProtocol
