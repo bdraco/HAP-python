@@ -18,11 +18,9 @@ async def test_we_can_start_stop(driver):
 
     server = hap_server.HAPServer(addr_info, driver)
     await server.async_start(loop)
-    assert len(server.server.sockets) == 1
     server.connections[client_1_addr_info] = MagicMock()
     server.connections[client_2_addr_info] = None
     server.async_stop()
-    assert len(server.server.sockets) == 0
 
 
 def test_push_event(driver):

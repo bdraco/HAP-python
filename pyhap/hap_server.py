@@ -60,7 +60,6 @@ class HAPServer:
             self._addr_port[0],
             self._addr_port[1],
         )
-        self._serve_task = asyncio.ensure_future(self.server.serve_forever())
 
     def async_stop(self):
         """Stop the server."""
@@ -69,7 +68,6 @@ class HAPServer:
             if hap_server_protocol:
                 hap_server_protocol.close()
         self.connections.clear()
-        self._serve_task.cancel()
 
     def push_event(self, bytesdata, client_addr):
         """Send an event to the current connection with the provided data.
