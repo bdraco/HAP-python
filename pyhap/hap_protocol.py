@@ -102,12 +102,12 @@ class HAPServerProtocol(asyncio.Protocol):
 
     def _process_one_event(self) -> bool:
         """Process one http event."""
+        if self.conn.our_state is h11.MUST_CLOSE:
+            return self._handle_invalid_conn_state("connection state is must close")
+
         event = self.conn.next_event()
 
         logger.debug("%s: h11 Event: %s", self.peername, event)
-
-        if self.conn.our_state is h11.MUST_CLOSE:
-            return self._handle_invalid_conn_state("connection state is must close")
 
         if event is h11.NEED_DATA:
             return False
