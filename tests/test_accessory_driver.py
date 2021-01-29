@@ -7,11 +7,14 @@ import pytest
 
 from pyhap.accessory import STANDALONE_AID, Accessory, Bridge
 from pyhap.accessory_driver import AccessoryDriver
-from pyhap.characteristic import (HAP_FORMAT_INT, HAP_PERMISSION_READ,
-                                  PROP_FORMAT, PROP_PERMISSIONS,
-                                  Characteristic)
-from pyhap.const import (HAP_REPR_AID, HAP_REPR_CHARS, HAP_REPR_IID,
-                         HAP_REPR_VALUE)
+from pyhap.characteristic import (
+    HAP_FORMAT_INT,
+    HAP_PERMISSION_READ,
+    PROP_FORMAT,
+    PROP_PERMISSIONS,
+    Characteristic,
+)
+from pyhap.const import HAP_REPR_AID, HAP_REPR_CHARS, HAP_REPR_IID, HAP_REPR_VALUE
 from pyhap.service import Service
 
 CHAR_PROPS = {
@@ -222,8 +225,7 @@ def test_send_events(driver):
     driver.http_server = HapServerMock()
     driver.loop = LoopMock()
     driver.topics = {"mocktopic": ["client1", "client2", "client3"]}
-    driver.event_queue.put(("mocktopic", "bytedata", "client1"))
-    driver.send_events()
+    driver.async_send_event("mocktopic", "bytedata", "client1")
 
     # Only client2 and client3 get the event when client1 sent it
     assert driver.http_server.get_pushed_events() == [
