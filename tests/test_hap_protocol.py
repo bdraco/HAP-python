@@ -279,7 +279,6 @@ async def test_camera_snapshot_works_sync(driver):
     hap_proto.close()
 
 
-
 @pytest.mark.asyncio
 async def test_camera_snapshot_works_async(driver):
     """Test camera snapshot works if there is support for it."""
