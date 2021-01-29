@@ -300,7 +300,7 @@ class AccessoryDriver:
 
         # Start listening for requests
         logger.debug("Starting server.")
-        self.add_job(self.http_server.async_start)
+        self.add_job(self.http_server.async_start, self.loop)
 
         # Advertise the accessory as a mDNS service.
         logger.debug("Starting mDNS.")
