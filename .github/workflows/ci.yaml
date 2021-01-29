@@ -24,11 +24,8 @@ jobs:
     - name: Test with tox
       run: tox
     - name: Lint with tox
-      env: TOXENV=lint
-      run: tox
+      run: TOXENV=lint tox
     - name: pylint with tox
-      env: TOXENV=pylint
-      run: tox
+      run: TOXENV=pylint tox
     - name: Docs with tox
-      env: TOXENV=docs
-      run: tox
+      run: TOXENV=docs tox
