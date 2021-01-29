@@ -53,16 +53,14 @@ class HAPServer:
         self.server = None
         self._serve_task = None
 
-    async def async_start(self):
+    async def async_start(self, loop):
         """Start the http-hap server."""
-        loop = asyncio.get_running_loop()
-
         self.server = await loop.create_server(
             lambda: HAPServerProtocol(loop, self.connections, self.accessory_handler),
             self._addr_port[0],
             self._addr_port[1],
         )
-        self._serve_task = asyncio.create_task(self.server.serve_forever())
+        self._serve_task = asyncio.ensure_future(self.server.serve_forever())
 
     def async_stop(self):
         """Stop the server."""

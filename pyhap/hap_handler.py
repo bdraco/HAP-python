@@ -669,7 +669,7 @@ class HAPServerHandler:
                 'does not define a "get_snapshot" or "async_get_snapshot" method'
             )
 
-        task = asyncio.create_task(coro)
+        task = asyncio.ensure_future(coro)
         self.send_response(200)
         self.send_header("Content-Type", "image/jpeg")
         self.response.task = task
