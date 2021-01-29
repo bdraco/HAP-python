@@ -216,25 +216,27 @@ def test_send_events(driver):
             return False
 
     class HapServerMock:
-        pushed_events = []
+        pushed_events = set()
 
         def push_event(self, bytedata, client_addr):
-            self.pushed_events.extend([[bytedata, client_addr]])
-            return 1
+            self.pushed_events.add((bytedata, client_addr))
+            if client_addr == "client2":
+                return False
+            return True
 
         def get_pushed_events(self):
             return self.pushed_events
 
     driver.http_server = HapServerMock()
     driver.loop = LoopMock()
-    driver.topics = {"mocktopic": ["client1", "client2", "client3"]}
+    driver.topics = {"mocktopic": {"client1", "client2", "client3"}}
     driver.async_send_event("mocktopic", "bytedata", "client1")
 
     # Only client2 and client3 get the event when client1 sent it
-    assert driver.http_server.get_pushed_events() == [
-        ["bytedata", "client2"],
-        ["bytedata", "client3"],
-    ]
+    assert driver.http_server.get_pushed_events() == {
+        ("bytedata", "client2"),
+        ("bytedata", "client3"),
+    }
 
 
 def test_async_subscribe_client_topic(driver):
