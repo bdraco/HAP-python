@@ -23,3 +23,12 @@ jobs:
         pip install tox tox-gh-actions
     - name: Test with tox
       run: tox
+    - name: Lint with tox
+      env: TOXENV=lint
+      run: tox
+    - name: pylint with tox
+      env: TOXENV=pylint
+      run: tox
+    - name: Docs with tox
+      env: TOXENV=docs
+      run: tox
