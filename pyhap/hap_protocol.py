@@ -113,10 +113,6 @@ class HAPServerProtocol(asyncio.Protocol):
             return False
 
         if event is h11.PAUSED:
-            if self.request:
-                return self._handle_invalid_conn_state(
-                    "paused when a request is in progress"
-                )
             self.conn.start_next_cycle()
             return True
 

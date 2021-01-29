@@ -13,9 +13,14 @@ async def test_we_can_start_stop(driver):
     """Test we can start and stop."""
     loop = asyncio.get_event_loop()
     addr_info = ("0.0.0.0", None)
+    client_1_addr_info = ("1.2.3.4", 44433)
+    client_2_addr_info = ("4.5.6.7", 33444)
+
     server = hap_server.HAPServer(addr_info, driver)
     await server.async_start(loop)
     assert len(server.server.sockets) == 1
+    server.connections[client_1_addr_info] = MagicMock()
+    server.connections[client_2_addr_info] = None
     server.async_stop()
     assert len(server.server.sockets) == 0
 
