@@ -245,7 +245,7 @@ def test_camera_snapshot_without_snapshot_support(driver):
 
 
 @pytest.mark.asyncio
-async def test_camera_snapshot_works(driver):
+async def test_camera_snapshot_works_sync(driver):
     """Test camera snapshot works if there is support for it."""
     loop = MagicMock()
     transport = MagicMock()
@@ -256,6 +256,42 @@ async def test_camera_snapshot_works(driver):
 
     acc = Accessory(driver, "TestAcc")
     acc.get_snapshot = _get_snapshot
+    driver.add_accessory(acc)
+
+    hap_proto = hap_protocol.HAPServerProtocol(loop, connections, driver)
+    hap_proto.connection_made(transport)
+
+    hap_proto.hap_crypto = MockHAPCrypto()
+    hap_proto.handler.is_encrypted = True
+
+    with patch.object(hap_proto.transport, "write") as writer:
+        hap_proto.data_received(
+            b'POST /resource HTTP/1.1\r\nHost: HASS\\032Bridge\\032BROZ\\0323BF435._hap._tcp.local\r\nContent-Length: 79\r\nContent-Type: application/hap+json\r\n\r\n{"image-height":360,"resource-type":"image","image-width":640,"aid":1411620844}'  # pylint: disable=line-too-long
+        )
+        await hap_proto.response.task
+        await asyncio.sleep(0)
+
+    assert (
+        b"HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\nTransfer-Encoding: chunked\r\n\r\n8\r\nfakesnap\r\n0\r\n\r\n"
+        in writer.call_args_list[0][0][0]
+    )
+
+    hap_proto.close()
+
+
+
+@pytest.mark.asyncio
+async def test_camera_snapshot_works_async(driver):
+    """Test camera snapshot works if there is support for it."""
+    loop = MagicMock()
+    transport = MagicMock()
+    connections = {}
+
+    async def _async_get_snapshot(*_):
+        return b"fakesnap"
+
+    acc = Accessory(driver, "TestAcc")
+    acc.async_get_snapshot = _async_get_snapshot
     driver.add_accessory(acc)
 
     hap_proto = hap_protocol.HAPServerProtocol(loop, connections, driver)
