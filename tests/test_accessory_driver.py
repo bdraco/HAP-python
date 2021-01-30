@@ -203,6 +203,12 @@ def test_start_stop_async_acc(driver):
     assert driver.loop.is_closed()
 
 
+def test_start_without_accessory(driver):
+    """Verify we throw ValueError if there is no accessory."""
+    with pytest.raises(ValueError):
+        driver.start_service()
+
+
 def test_send_events(driver):
     """Test we can send events."""
 

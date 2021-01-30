@@ -129,11 +129,13 @@ def test_get_accessories_without_crypto(driver):
         )
 
     hap_proto.close()
-    assert b'{"status": -70401}' in writer.call_args_list[0][0][0]
+    assert b'-70401' in writer.call_args_list[0][0][0]
 
+
+ 
 
 def test_get_accessories_with_crypto(driver):
-    """Verify an encrypt request."""
+    """Verify an encrypt accessories request."""
     loop = MagicMock()
     transport = MagicMock()
     connections = {}
@@ -152,7 +154,68 @@ def test_get_accessories_with_crypto(driver):
         )
 
     hap_proto.close()
-    assert b'"accessories"' in writer.call_args_list[0][0][0]
+    assert b'accessories' in writer.call_args_list[0][0][0]
+
+
+
+def test_get_characteristics_with_crypto(driver):
+    """Verify an encrypt characteristics request."""
+    loop = MagicMock()
+    transport = MagicMock()
+    connections = {}
+
+    acc = Accessory(driver, "TestAcc", aid=1)
+    assert acc.aid == 1
+    service = acc.driver.loader.get_service('TemperatureSensor')
+    acc.add_service(service)
+    driver.add_accessory(acc)
+
+    hap_proto = hap_protocol.HAPServerProtocol(loop, connections, driver)
+    hap_proto.connection_made(transport)
+
+    hap_proto.hap_crypto = MockHAPCrypto()
+    hap_proto.handler.is_encrypted = True
+
+    with patch.object(hap_proto.transport, "write") as writer:
+        hap_proto.data_received(
+            b'GET /characteristics?id=3762173001.7 HTTP/1.1\r\nHost: HASS\\032Bridge\\032YPHW\\032B223AD._hap._tcp.local\r\n\r\n'  # pylint: disable=line-too-long
+        )      
+        hap_proto.data_received(
+            b'GET /characteristics?id=1.5 HTTP/1.1\r\nHost: HASS\\032Bridge\\032YPHW\\032B223AD._hap._tcp.local\r\n\r\n'  # pylint: disable=line-too-long
+        )
+
+    hap_proto.close()
+    assert b'-70402' in writer.call_args_list[0][0][0]
+    assert b'TestAcc' in writer.call_args_list[1][0][0]
+
+
+
+def test_set_characteristics_with_crypto(driver):
+    """Verify an encrypt characteristics request."""
+    loop = MagicMock()
+    transport = MagicMock()
+    connections = {}
+
+    acc = Accessory(driver, "TestAcc", aid=1)
+    assert acc.aid == 1
+    service = acc.driver.loader.get_service('GarageDoorOpener')
+    acc.add_service(service)
+    driver.add_accessory(acc)
+
+    hap_proto = hap_protocol.HAPServerProtocol(loop, connections, driver)
+    hap_proto.connection_made(transport)
+
+    hap_proto.hap_crypto = MockHAPCrypto()
+    hap_proto.handler.is_encrypted = True
+
+    with patch.object(hap_proto.transport, "write") as writer:  
+        hap_proto.data_received(
+            b'PUT /characteristics HTTP/1.1\r\nHost: HASS12\\032AD1C22._hap._tcp.local\r\nContent-Length: 49\r\nContent-Type: application/hap+json\r\n\r\n{"characteristics":[{"aid":1,"iid":9,"ev":true}]}'  # pylint: disable=line-too-long
+        )
+
+
+    hap_proto.close()
+    assert writer.call_args_list[0][0][0] == b'HTTP/1.1 204 OK\r\n\r\n'
 
 
 def test_crypto_failure_closes_connection(driver):
@@ -196,7 +259,7 @@ def test_empty_encrypted_data(driver):
         )
 
     hap_proto.close()
-    assert b'"accessories"' in writer.call_args_list[0][0][0]
+    assert b'accessories' in writer.call_args_list[0][0][0]
 
 
 def test_http_11_keep_alive(driver):
@@ -241,7 +304,7 @@ def test_camera_snapshot_without_snapshot_support(driver):
         )
 
     hap_proto.close()
-    assert b'{"status": -70402}' in writer.call_args_list[0][0][0]
+    assert b'-70402' in writer.call_args_list[0][0][0]
 
 
 @pytest.mark.asyncio
@@ -272,7 +335,7 @@ async def test_camera_snapshot_works_sync(driver):
         await asyncio.sleep(0)
 
     assert (
-        b"HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\nTransfer-Encoding: chunked\r\n\r\n8\r\nfakesnap\r\n0\r\n\r\n"
+        b"fakesnap"
         in writer.call_args_list[0][0][0]
     )
 
@@ -307,7 +370,7 @@ async def test_camera_snapshot_works_async(driver):
         await asyncio.sleep(0)
 
     assert (
-        b"HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\nTransfer-Encoding: chunked\r\n\r\n8\r\nfakesnap\r\n0\r\n\r\n"
+        b"fakesnap"
         in writer.call_args_list[0][0][0]
     )
 
